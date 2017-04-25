@@ -582,7 +582,7 @@ public class DetectionJobResource {
   @POST
   @Path("replay/function/{id}")
   public Response anomalyFunctionReplay(@PathParam("id") @NotNull long functionId,
-      @QueryParam("time") @NotNull String replayStartTimeIso, @QueryParam("duration") @DefaultValue("30") int replayDuration,
+      @QueryParam("time") String replayTimeIso, @QueryParam("duration") @DefaultValue("30") int replayDuration,
       @QueryParam("durationUnit") String durationUnit,
       @QueryParam("speedup") @DefaultValue("true") boolean speedup,
       @QueryParam("tune") @DefaultValue("{\"pValueThreshold\":[0.05, 0.01]}") String tuningJSON,
@@ -602,11 +602,14 @@ public class DetectionJobResource {
         timeUnit = TimeUnit.valueOf(durationUnit);
       }
       TimeGranularity timeGranularity = new TimeGranularity(replayDuration, timeUnit);
-      replayStart = ISODateTimeFormat.dateTimeParser().parseDateTime(replayStartTimeIso);
+      replayStart = DateTime.now();
+      if (StringUtils.isNotEmpty(replayTimeIso)) {
+        replayStart = ISODateTimeFormat.dateTimeParser().parseDateTime(replayTimeIso);
+      }
       replayEnd = replayStart.minus(timeGranularity.toPeriod());
     }
     catch (Exception e) {
-      throw new WebApplicationException("Unable to parse strings, "+ replayStartTimeIso +
+      throw new WebApplicationException("Unable to parse strings, "+ replayTimeIso +
           ", in ISO DateTime format", e);
     }
 
