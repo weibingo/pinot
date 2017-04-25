@@ -1751,26 +1751,44 @@ public class PinotHelixResourceManager {
     return getAllPinotTableNames().contains(actualTableName);
   }
 
-  public AbstractTableConfig getOfflineTableConfig(String offlineTableName) throws JsonParseException,
-      JsonMappingException, JsonProcessingException, JSONException, IOException {
-    return ZKMetadataProvider.getOfflineTableConfig(getPropertyStore(), offlineTableName);
+  /**
+   * @param tableName table name with or without type suffix.
+   */
+  @Nullable
+  public AbstractTableConfig getOfflineTableConfig(@Nonnull String tableName) {
+    return ZKMetadataProvider.getOfflineTableConfig(getPropertyStore(), tableName);
   }
 
-  public AbstractTableConfig getRealtimeTableConfig(String realtimeTableName) throws JsonParseException,
-      JsonMappingException, JsonProcessingException, JSONException, IOException {
-    return ZKMetadataProvider.getRealtimeTableConfig(getPropertyStore(), realtimeTableName);
+  /**
+   * @param tableName table name with or without type suffix.
+   */
+  @Nullable
+  public AbstractTableConfig getRealtimeTableConfig(@Nonnull String tableName) {
+    return ZKMetadataProvider.getRealtimeTableConfig(getPropertyStore(), tableName);
   }
 
-  public AbstractTableConfig getTableConfig(String tableName, TableType type) throws JsonParseException,
-      JsonMappingException, JsonProcessingException, JSONException, IOException {
-    String actualTableName = new TableNameBuilder(type).forTable(tableName);
-    AbstractTableConfig config = null;
-    if (type == TableType.REALTIME) {
-      config = ZKMetadataProvider.getRealtimeTableConfig(getPropertyStore(), actualTableName);
+  /**
+   * @param tableName table name with or without type suffix.
+   */
+  @Nullable
+  public AbstractTableConfig getTableConfig(@Nonnull String tableName, @Nonnull TableType type) {
+    if (type == TableType.OFFLINE) {
+      return ZKMetadataProvider.getOfflineTableConfig(getPropertyStore(), tableName);
     } else {
-      config = ZKMetadataProvider.getOfflineTableConfig(getPropertyStore(), actualTableName);
+      return ZKMetadataProvider.getRealtimeTableConfig(getPropertyStore(), tableName);
     }
-    return config;
+  }
+
+  /**
+   * @param tableNameWithSuffix table name with type suffix.
+   */
+  @Nullable
+  public AbstractTableConfig getTableConfig(@Nonnull String tableNameWithSuffix) {
+    TableType tableType = TableNameBuilder.getTableTypeFromTableName(tableNameWithSuffix);
+    if (tableType == null) {
+      return null;
+    }
+    return getTableConfig(tableNameWithSuffix, tableType);
   }
 
   public List<String> getServerInstancesForTable(String tableName, TableType type) throws JsonParseException,

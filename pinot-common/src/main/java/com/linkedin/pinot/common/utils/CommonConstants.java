@@ -161,10 +161,9 @@ public class CommonConstants {
       public static final String ADMIN_PORT_KEY = "adminPort";
     }
 
-    public static enum TableType {
+    public enum TableType {
       OFFLINE,
-      REALTIME,
-      HYBRID;
+      REALTIME;
 
       public ServerType getServerType() {
         if (this == OFFLINE) {
@@ -235,12 +234,11 @@ public class CommonConstants {
       public static final String CURRENT_NUMBER_OF_DOCUMENTS = "currentNumberOfDocuments";
       public static final String NUMBER_OF_DELETED_SEGMENTS = "numberOfDeletedSegments";
     }
-
   }
 
   public static class Segment {
     public static class Realtime {
-      public static enum Status {
+      public enum Status {
         IN_PROGRESS,
         DONE
       }
@@ -250,7 +248,7 @@ public class CommonConstants {
     public static class Offline {
       public static final String DOWNLOAD_URL = "segment.offline.download.url";
       public static final String PUSH_TIME = "segment.offline.push.time";
-      public static final String REFRESH_TIME = "segment.offline.refresh.time";;
+      public static final String REFRESH_TIME = "segment.offline.refresh.time";
     }
 
     public static final String SEGMENT_NAME = "segment.name";
@@ -265,7 +263,7 @@ public class CommonConstants {
     public static final String CREATION_TIME = "segment.creation.time";
     public static final String FLUSH_THRESHOLD_SIZE = "segment.flush.threshold.size";
 
-    public static enum SegmentType {
+    public enum SegmentType {
       OFFLINE,
       REALTIME
     }
