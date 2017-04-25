@@ -37,7 +37,8 @@ public class FunctionReplayRunnable implements Runnable {
   private Long functionAutotuneConfigId;
   private boolean speedUp;
   private boolean selfKill;
-  private long lastClonedFunctionId;
+  private long clonedFunctionId;
+  private boolean cloneAnomaly;
 
   public FunctionReplayRunnable(DetectionJobScheduler detectionJobScheduler, AnomalyFunctionManager anomalyFunctionDAO,
       MergedAnomalyResultManager mergedAnomalyResultDAO, RawAnomalyResultManager rawAnomalyResultDAO,
@@ -49,6 +50,7 @@ public class FunctionReplayRunnable implements Runnable {
     this.autotuneConfigDAO = autotuneConfigDAO;
     setSpeedUp(true);
     setForceBackfill(true);
+    setCloneAnomaly(true);
     setSelfKill(true);
   }
 
@@ -64,7 +66,6 @@ public class FunctionReplayRunnable implements Runnable {
     setForceBackfill(isForceBackfill);
     setTuningParameter(tuningParameter);
     setFunctionAutotuneConfigId(functionAutotuneConfigId);
-    setSpeedUp(true);
     setGoal(goal);
     setSelfKill(selfKill);
   }
@@ -78,9 +79,7 @@ public class FunctionReplayRunnable implements Runnable {
     setTuningFunctionId(tuningFunctionId);
     setReplayStart(replayStart);
     setReplayEnd(replayEnd);
-    setForceBackfill(true);
     setTuningParameter(tuningParameter);
-    setSpeedUp(true);
     setSelfKill(selfKill);
   }
 
@@ -118,8 +117,12 @@ public class FunctionReplayRunnable implements Runnable {
       functionName.append(entry.getValue());
     }
     try {
-      clonedFunctionId = onboardResource.cloneAnomalyFunctionById(tuningFunctionId, functionName.toString(), false);
-      this.lastClonedFunctionId = clonedFunctionId;
+      clonedFunctionId = onboardResource.cloneAnomalyFunctionById(tuningFunctionId, functionName.toString(), cloneAnomaly);
+      this.clonedFunctionId = clonedFunctionId;
+
+      // remove anomalies in monitoring window
+      onboardResource.deleteExistingAnomalies(Long.toString(clonedFunctionId),
+          replayStart.getMillis(), replayEnd.getMillis());
     }
     catch (Exception e) {
       LOG.error("Unable to clone function {} with given name {}", tuningFunctionId, functionName.toString(), e);
@@ -129,10 +132,6 @@ public class FunctionReplayRunnable implements Runnable {
     AnomalyFunctionDTO anomalyFunctionDTO = anomalyFunctionDAO.findById(clonedFunctionId);
     // Remove alert filters
     anomalyFunctionDTO.setAlertFilter(null);
-
-    int originWindowSize = anomalyFunctionDTO.getWindowSize();
-    TimeUnit originWindowUnit = anomalyFunctionDTO.getWindowUnit();
-    String originCron = anomalyFunctionDTO.getCron();
 
     // enlarge window size so that we can speed-up the replay speed
     if(speedUp) {
@@ -181,9 +180,11 @@ public class FunctionReplayRunnable implements Runnable {
       anomalyFunctionDAO.deleteById(clonedFunctionId);
     }
     else {
-      anomalyFunctionDTO.setWindowSize(originWindowSize);
-      anomalyFunctionDTO.setWindowUnit(originWindowUnit);
-      anomalyFunctionDTO.setCron(originCron);
+      AnomalyFunctionDTO originalFunctionDTO = anomalyFunctionDAO.findById(tuningFunctionId);
+      anomalyFunctionDTO.setWindowSize(originalFunctionDTO.getWindowSize());
+      anomalyFunctionDTO.setWindowUnit(originalFunctionDTO.getWindowUnit());
+      anomalyFunctionDTO.setCron(originalFunctionDTO.getCron());
+      anomalyFunctionDTO.setAlertFilter(originalFunctionDTO.getAlertFilter());
       anomalyFunctionDAO.update(anomalyFunctionDTO);
     }
   }
@@ -277,5 +278,13 @@ public class FunctionReplayRunnable implements Runnable {
     this.selfKill = selfKill;
   }
 
-  public long getLastClonedFunctionId(){return lastClonedFunctionId;}
+  public long getClonedFunctionId(){return clonedFunctionId;}
+
+  public boolean isCloneAnomaly() {
+    return cloneAnomaly;
+  }
+
+  public void setCloneAnomaly(boolean cloneAnomaly) {
+    this.cloneAnomaly = cloneAnomaly;
+  }
 }
