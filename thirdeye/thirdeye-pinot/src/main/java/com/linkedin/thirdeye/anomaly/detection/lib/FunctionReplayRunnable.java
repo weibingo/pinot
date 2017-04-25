@@ -32,14 +32,22 @@ public class FunctionReplayRunnable implements Runnable {
   private DateTime replayStart;
   private DateTime replayEnd;
   private double goal;
-  private boolean isForceBackfill;
-  private Map<String, String> tuningParameter;
-  private Long functionAutotuneConfigId;
-  private boolean speedUp;
-  private boolean selfKill;
-  private long clonedFunctionId;
-  private boolean cloneAnomaly;
+  private boolean forceBackfill;
+  private Map<String, String> tuningParameter; // the parameter to apply to the cloned function
+  private Long functionAutotuneConfigId; // the id of the autotune config entry
+  private boolean speedUp; // to change the window and cron for speeding up the replay
+  private boolean selfKill; // to remove anomalies and function after replay
+  private long clonedFunctionId; // the id of the cloned function
+  private boolean cloneAnomaly; // to decide if we clone history anomalies during function clone
 
+  /**
+   * The base constructor for constructing FunctionReplayRunnable
+   * @param detectionJobScheduler
+   * @param anomalyFunctionDAO
+   * @param mergedAnomalyResultDAO
+   * @param rawAnomalyResultDAO
+   * @param autotuneConfigDAO
+   */
   public FunctionReplayRunnable(DetectionJobScheduler detectionJobScheduler, AnomalyFunctionManager anomalyFunctionDAO,
       MergedAnomalyResultManager mergedAnomalyResultDAO, RawAnomalyResultManager rawAnomalyResultDAO,
       AutotuneConfigManager autotuneConfigDAO){
@@ -109,6 +117,8 @@ public class FunctionReplayRunnable implements Runnable {
     long clonedFunctionId = 0l;
     OnboardResource
         onboardResource = new OnboardResource(anomalyFunctionDAO, mergedAnomalyResultDAO, rawAnomalyResultDAO);
+
+    // clone function with configuration appended
     StringBuilder functionName = new StringBuilder("clone");
     for (Map.Entry<String, String> entry : tuningParameter.entrySet()) {
       functionName.append("_");
@@ -129,6 +139,7 @@ public class FunctionReplayRunnable implements Runnable {
       return;
     }
 
+    // Apply configuration to the cloned function and speedup
     AnomalyFunctionDTO anomalyFunctionDTO = anomalyFunctionDAO.findById(clonedFunctionId);
     // Remove alert filters
     anomalyFunctionDTO.setAlertFilter(null);
@@ -144,8 +155,10 @@ public class FunctionReplayRunnable implements Runnable {
 
     anomalyFunctionDAO.update(anomalyFunctionDTO);
 
-    detectionJobScheduler.synchronousBackFill(clonedFunctionId, replayStart, replayEnd, isForceBackfill);
+    // begin backfill
+    detectionJobScheduler.synchronousBackFill(clonedFunctionId, replayStart, replayEnd, forceBackfill);
 
+    // evaluate performance if needed
     if(autotuneConfigDAO != null) { // if no functionAutotuneId, skip update
       PerformanceEvaluate performanceEvaluator =
           PerformanceEvaluateHelper.getPerformanceEvaluator(performanceEvaluationMethod, tuningFunctionId,
@@ -175,7 +188,7 @@ public class FunctionReplayRunnable implements Runnable {
 
     // clean up and kill itself
     if(selfKill) {
-      onboardResource.deleteExistingAnomalies(Long.toString(clonedFunctionId), replayStart.getMillis(),
+      onboardResource.deleteExistingAnomalies(Long.toString(clonedFunctionId), 0,
           replayEnd.getMillis());
       anomalyFunctionDAO.deleteById(clonedFunctionId);
     }
@@ -215,11 +228,11 @@ public class FunctionReplayRunnable implements Runnable {
   }
 
   public boolean isForceBackfill() {
-    return isForceBackfill;
+    return forceBackfill;
   }
 
   public void setForceBackfill(boolean forceBackfill) {
-    isForceBackfill = forceBackfill;
+    this.forceBackfill = forceBackfill;
   }
 
   public Map<String, String> getTuningParameter() {
